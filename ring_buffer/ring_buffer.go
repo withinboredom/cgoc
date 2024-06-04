@@ -17,53 +17,53 @@ import (
 
 // RingBufferWrapper wraps the C RingBuffer struct
 type RingBufferWrapper struct {
-	ringBuffer *C.RingBuffer
+	RingBuffer *C.RingBuffer
 	slots      []C.RingBufferSlot
 }
 
-// NewRingBufferWrapper creates a new RingBufferWrapper
-func NewRingBufferWrapper(size int) *RingBufferWrapper {
+// newBufferWrapper creates a new RingBufferWrapper
+func newBufferWrapper(size int) *RingBufferWrapper {
 	slots := make([]C.RingBufferSlot, size)
 	rb := &RingBufferWrapper{
-		ringBuffer: (*C.RingBuffer)(C.malloc(C.sizeof_RingBuffer)),
+		RingBuffer: (*C.RingBuffer)(C.malloc(C.sizeof_RingBuffer)),
 		slots:      slots,
 	}
-	C.ring_buffer_init(rb.ringBuffer, (*C.RingBufferSlot)(unsafe.Pointer(&slots[0])), C.size_t(size))
+	C.ring_buffer_init(rb.RingBuffer, (*C.RingBufferSlot)(unsafe.Pointer(&slots[0])), C.size_t(size))
 	return rb
 }
 
-// Destroy releases the resources used by the RingBufferWrapper
-func (rb *RingBufferWrapper) Destroy() {
-	C.ring_buffer_destroy(rb.ringBuffer)
-	C.free(unsafe.Pointer(rb.ringBuffer))
+// destroy releases the resources used by the RingBufferWrapper
+func (rb *RingBufferWrapper) destroy() {
+	C.ring_buffer_destroy(rb.RingBuffer)
+	C.free(unsafe.Pointer(rb.RingBuffer))
 }
 
-// Write writes a message to the ring buffer with fragmentation support
-func (rb *RingBufferWrapper) Write(data []byte) int {
-	written := C.ring_buffer_write(rb.ringBuffer, unsafe.Pointer(&data[0]), C.size_t(len(data)))
+// write writes a message to the ring buffer with fragmentation support
+func (rb *RingBufferWrapper) write(data []byte) int {
+	written := C.ring_buffer_write(rb.RingBuffer, unsafe.Pointer(&data[0]), C.size_t(len(data)))
 	return int(written)
 }
 
-// WriteFull writes a message to the ring buffer ensuring the entire message is written
-func (rb *RingBufferWrapper) WriteFull(data []byte) {
-	C.ring_buffer_write_full(rb.ringBuffer, unsafe.Pointer(&data[0]), C.size_t(len(data)))
+// writeFull writes a message to the ring buffer ensuring the entire message is written
+func (rb *RingBufferWrapper) writeFull(data []byte) {
+	C.ring_buffer_write_full(rb.RingBuffer, unsafe.Pointer(&data[0]), C.size_t(len(data)))
 }
 
-// BufferReader struct to encapsulate ring buffer reading
-type BufferReader struct {
+// bufferReader struct to encapsulate ring buffer reading
+type bufferReader struct {
 	mu         sync.Mutex
 	ringBuffer *C.RingBuffer
 }
 
-// NewBufferReader creates a new BufferReader
-func NewBufferReader(ringBuffer *C.RingBuffer) *BufferReader {
-	return &BufferReader{
+// newBufferReader creates a new bufferReader
+func newBufferReader(ringBuffer *C.RingBuffer) *bufferReader {
+	return &bufferReader{
 		ringBuffer: ringBuffer,
 	}
 }
 
-// Read reads a message from the ring buffer, handling fragmentation
-func (br *BufferReader) Read() ([]byte, error) {
+// read reads a message from the ring buffer, handling fragmentation
+func (br *bufferReader) read() ([]byte, error) {
 	br.mu.Lock()
 	defer br.mu.Unlock()
 
@@ -97,7 +97,7 @@ func (br *BufferReader) Read() ([]byte, error) {
 
 		//fmt.Printf("\rRead %d bytes of %d\t\t", len(data), remainingLength)
 
-		bytesRead += copyLength
+		bytesRead += len(data)
 
 		C.ring_buffer_advance_read_index(br.ringBuffer)
 
@@ -112,14 +112,14 @@ func wait_for_signal(ringBuffer *C.RingBuffer) {
 }
 
 func streamData(ringBuffer *C.RingBuffer, output bool, done context.CancelFunc) {
-	bufferReader := NewBufferReader(ringBuffer)
+	bufferReader := newBufferReader(ringBuffer)
 
 	for {
 		wait_for_signal(ringBuffer) // Wait for the signal from C
 
-		data, err := bufferReader.Read()
+		data, err := bufferReader.read()
 		if err != nil {
-			fmt.Println("Read error:", err)
+			fmt.Println("read error:", err)
 			continue
 		}
 
@@ -137,17 +137,17 @@ func RunTest() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ringBuffer1 := NewRingBufferWrapper(10)
-	defer ringBuffer1.Destroy()
+	ringBuffer1 := newBufferWrapper(10)
+	defer ringBuffer1.destroy()
 
-	ringBuffer2 := NewRingBufferWrapper(100)
-	defer ringBuffer2.Destroy()
+	ringBuffer2 := newBufferWrapper(100)
+	defer ringBuffer2.destroy()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
 	//go streamData(ringBuffer1.ringBuffer, true, cancel)
-	go streamData(ringBuffer2.ringBuffer, false, cancel)
+	go streamData(ringBuffer2.RingBuffer, false, cancel)
 
 	fmt.Println("Generating large string!")
 	data := make([]byte, 2*1024*1024*1024)
@@ -157,7 +157,7 @@ func RunTest() {
 	fmt.Println("Writing large string!")
 
 	start := time.Now()
-	ringBuffer2.WriteFull(data)
+	ringBuffer2.writeFull(data)
 	fmt.Println("Completed, waiting for read...")
 	<-ctx.Done()
 	end := time.Now()

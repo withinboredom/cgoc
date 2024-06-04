@@ -8,14 +8,14 @@ import (
 )
 
 func TestRingBufferWriteAndRead(t *testing.T) {
-	rb := NewRingBufferWrapper(10)
-	defer rb.Destroy()
+	rb := newBufferWrapper(10)
+	defer rb.destroy()
 
 	data := []byte("test data")
-	rb.WriteFull(data)
+	rb.writeFull(data)
 
-	bufferReader := NewBufferReader(rb.ringBuffer)
-	readData, err := bufferReader.Read()
+	bufferReader := newBufferReader(rb.RingBuffer)
+	readData, err := bufferReader.read()
 	if err != nil {
 		t.Fatalf("Failed to read data: %v", err)
 	}
@@ -26,8 +26,8 @@ func TestRingBufferWriteAndRead(t *testing.T) {
 }
 
 func TestRingBufferLargeWriteAndRead(t *testing.T) {
-	rb := NewRingBufferWrapper(100)
-	defer rb.Destroy()
+	rb := newBufferWrapper(100)
+	defer rb.destroy()
 
 	// Create large data of 1MB
 	data := make([]byte, 1024*1024)
@@ -35,10 +35,10 @@ func TestRingBufferLargeWriteAndRead(t *testing.T) {
 		data[i] = byte(i % 256)
 	}
 
-	rb.WriteFull(data)
+	rb.writeFull(data)
 
-	bufferReader := NewBufferReader(rb.ringBuffer)
-	readData, err := bufferReader.Read()
+	bufferReader := newBufferReader(rb.RingBuffer)
+	readData, err := bufferReader.read()
 	if err != nil {
 		t.Fatalf("Failed to read data: %v", err)
 	}
@@ -49,8 +49,8 @@ func TestRingBufferLargeWriteAndRead(t *testing.T) {
 }
 
 func TestConcurrentWriteAndRead(t *testing.T) {
-	rb := NewRingBufferWrapper(10)
-	defer rb.Destroy()
+	rb := newBufferWrapper(10)
+	defer rb.destroy()
 
 	data := []byte("concurrent data")
 
@@ -58,14 +58,14 @@ func TestConcurrentWriteAndRead(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		rb.WriteFull(data)
+		rb.writeFull(data)
 	}()
 
-	bufferReader := NewBufferReader(rb.ringBuffer)
+	bufferReader := newBufferReader(rb.RingBuffer)
 	readDataCh := make(chan []byte, 1)
 
 	go func() {
-		readData, err := bufferReader.Read()
+		readData, err := bufferReader.read()
 		if err != nil {
 			t.Fatalf("Failed to read data: %v", err)
 		}
@@ -83,20 +83,20 @@ func TestConcurrentWriteAndRead(t *testing.T) {
 }
 
 func TestRingBufferSynchronization(t *testing.T) {
-	rb := NewRingBufferWrapper(10)
-	defer rb.Destroy()
+	rb := newBufferWrapper(10)
+	defer rb.destroy()
 
 	data := []byte("sync test")
 
 	// Start writer
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		rb.WriteFull(data)
+		rb.writeFull(data)
 	}()
 
 	// Start reader
-	bufferReader := NewBufferReader(rb.ringBuffer)
-	readData, err := bufferReader.Read()
+	bufferReader := newBufferReader(rb.RingBuffer)
+	readData, err := bufferReader.read()
 	if err != nil {
 		t.Fatalf("Failed to read data: %v", err)
 	}
