@@ -85,7 +85,6 @@ func (br *BufferReader) Read() ([]byte, error) {
 		slot := C.ring_buffer_get_read_slot(br.ringBuffer)
 		totalLength = int(slot.total_length)
 
-		// Determine how much data to copy from the current slot
 		remainingLength := totalLength - bytesRead
 		copyLength := remainingLength
 		if copyLength > C.MAX_DATA_LENGTH {
@@ -93,10 +92,10 @@ func (br *BufferReader) Read() ([]byte, error) {
 		}
 
 		// Copy only the relevant portion of data from the current slot
-		data := C.GoBytes(unsafe.Pointer(&slot.data[0]), C.int(copyLength))
+		data := C.GoBytes(unsafe.Pointer(slot.data), C.int(copyLength))
 		buffer.Write(data)
 
-		fmt.Printf("\rRead %d bytes of %d\t\t", len(data), remainingLength)
+		//fmt.Printf("\rRead %d bytes of %d\t\t", len(data), remainingLength)
 
 		bytesRead += copyLength
 
@@ -151,7 +150,7 @@ func RunTest() {
 	go streamData(ringBuffer2.ringBuffer, false, cancel)
 
 	fmt.Println("Generating large string!")
-	data := make([]byte, 5*1024*1024*1024)
+	data := make([]byte, 2*1024*1024*1024)
 	for i := 0; i < len(data); i++ {
 		data[i] = byte(i % 256)
 	}
