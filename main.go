@@ -8,8 +8,8 @@ package main
 import "C"
 
 import (
-	"cgoc/ring_buffer"
 	"fmt"
+	"github.com/withinboredom/cgoc/ring_buffer"
 	"os"
 	"runtime"
 	"strconv"

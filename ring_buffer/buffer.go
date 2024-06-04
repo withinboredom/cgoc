@@ -1,6 +1,9 @@
 package ring_buffer
 
-import "sync"
+import (
+	"runtime"
+	"sync"
+)
 
 type Buffer struct {
 	RingBufferWrapper
@@ -21,6 +24,10 @@ func NewBuffer(size int) *Buffer {
 	b.wg.Add(1)
 	go b.startReadRoutine()
 
+	runtime.SetFinalizer(b, func() {
+		b.Destroy()
+	})
+
 	return b
 }
 
@@ -28,7 +35,7 @@ func (b *Buffer) Destroy() {
 	close(b.stopChan)
 	b.wg.Wait()
 
-	b.destroy()
+	b.RingBufferWrapper.Destroy()
 }
 
 func (b *Buffer) Write(data []byte) int {

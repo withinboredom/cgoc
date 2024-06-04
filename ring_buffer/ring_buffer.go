@@ -33,7 +33,7 @@ func newBufferWrapper(size int) *RingBufferWrapper {
 }
 
 // destroy releases the resources used by the RingBufferWrapper
-func (rb *RingBufferWrapper) destroy() {
+func (rb *RingBufferWrapper) Destroy() {
 	C.ring_buffer_destroy(rb.RingBuffer)
 	C.free(unsafe.Pointer(rb.RingBuffer))
 }
@@ -137,11 +137,7 @@ func RunTest() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ringBuffer1 := newBufferWrapper(10)
-	defer ringBuffer1.destroy()
-
 	ringBuffer2 := newBufferWrapper(100)
-	defer ringBuffer2.destroy()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
