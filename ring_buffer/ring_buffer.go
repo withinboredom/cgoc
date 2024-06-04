@@ -74,22 +74,13 @@ func (br *BufferReader) Read() ([]byte, error) {
 	C.pthread_mutex_lock(&br.ringBuffer.mutex)
 	defer C.pthread_mutex_unlock(&br.ringBuffer.mutex)
 
-	deadlockCounter := 0
-
 	for {
 		if br.ringBuffer.read_index == br.ringBuffer.write_index {
 			C.pthread_mutex_unlock(&br.ringBuffer.mutex)
-			// yield the thread
 			time.Sleep(1 * time.Microsecond)
 			C.pthread_mutex_lock(&br.ringBuffer.mutex)
-			if deadlockCounter < 1000 {
-				deadlockCounter += 1
-				continue
-			}
-			return nil, fmt.Errorf("no data available")
+			continue
 		}
-
-		deadlockCounter = 0
 
 		slot := C.ring_buffer_get_read_slot(br.ringBuffer)
 		totalLength = int(slot.total_length)
@@ -138,6 +129,7 @@ func streamData(ringBuffer *C.RingBuffer, output bool, done context.CancelFunc) 
 		} else {
 			fmt.Printf("\nReceived data: %d\n", len(data))
 			done()
+			return
 		}
 	}
 }
@@ -146,41 +138,30 @@ func RunTest() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// Create multiple ring buffers
 	ringBuffer1 := NewRingBufferWrapper(10)
 	defer ringBuffer1.Destroy()
 
-	ringBuffer2 := NewRingBufferWrapper(5024)
+	ringBuffer2 := NewRingBufferWrapper(100)
 	defer ringBuffer2.Destroy()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Example of concurrent writers
-	go streamData(ringBuffer1.ringBuffer, true, cancel)
+	//go streamData(ringBuffer1.ringBuffer, true, cancel)
 	go streamData(ringBuffer2.ringBuffer, false, cancel)
 
-	/*for i := 0; i < 10; i++ {
-		output := []byte("example output " + strconv.Itoa(i))
-		ringBuffer1.Write(output)
-	}*/
-
-	// create a 2gb string
 	fmt.Println("Generating large string!")
-	data := make([]byte, 1024*1024*1024)
+	data := make([]byte, 5*1024*1024*1024)
 	for i := 0; i < len(data); i++ {
 		data[i] = byte(i % 256)
 	}
-	fmt.Printf("Writing large string: %d\n", len(data))
+	fmt.Println("Writing large string!")
 
-	// start a benchmarking timer
 	start := time.Now()
 	ringBuffer2.WriteFull(data)
 	fmt.Println("Completed, waiting for read...")
 	<-ctx.Done()
 	end := time.Now()
 	elapsed := end.Sub(start)
-	fmt.Printf("\nTime taken for 2gb: %s\n", elapsed)
-
-	select {}
+	fmt.Printf("Time taken for 1GB: %s | %0.2f gb/s\n", elapsed, 1/elapsed.Seconds())
 }

@@ -1,52 +1,107 @@
 package ring_buffer
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-	"runtime"
 	"testing"
 	"time"
 )
 
-func TestWriting(t *testing.T) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+func TestRingBufferWriteAndRead(t *testing.T) {
+	rb := NewRingBufferWrapper(10)
+	defer rb.Destroy()
 
-	// Create multiple ring buffers
-	ringBuffer1 := NewRingBufferWrapper(10)
-	defer ringBuffer1.Destroy()
+	data := []byte("test data")
+	rb.WriteFull(data)
 
-	ringBuffer2 := NewRingBufferWrapper(10)
-	defer ringBuffer2.Destroy()
+	bufferReader := NewBufferReader(rb.ringBuffer)
+	readData, err := bufferReader.Read()
+	if err != nil {
+		t.Fatalf("Failed to read data: %v", err)
+	}
 
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
+	if !bytes.Equal(data, readData) {
+		t.Errorf("Data mismatch. Expected: %s, Got: %s", string(data), string(readData))
+	}
+}
 
-	// Example of concurrent writers
-	go streamData(ringBuffer1.ringBuffer, true, cancel)
-	go streamData(ringBuffer2.ringBuffer, false, cancel)
+func TestRingBufferLargeWriteAndRead(t *testing.T) {
+	rb := NewRingBufferWrapper(100)
+	defer rb.Destroy()
 
-	/*for i := 0; i < 10; i++ {
-		output := []byte("example output " + strconv.Itoa(i))
-		ringBuffer1.Write(output)
-	}*/
-
-	// create a 2gb string
-	fmt.Println("Generating large string!")
-	data := make([]byte, 1*1024*1024*1024)
+	// Create large data of 1MB
+	data := make([]byte, 1024*1024)
 	for i := 0; i < len(data); i++ {
 		data[i] = byte(i % 256)
 	}
-	fmt.Println("Writing large string!")
 
-	// start a benchmarking timer
-	start := time.Now()
-	ringBuffer2.WriteFull(data)
-	fmt.Println("Completed, waiting for read...")
-	<-ctx.Done()
-	end := time.Now()
-	elapsed := end.Sub(start)
-	fmt.Printf("Time taken for 2gb: %s\n", elapsed)
+	rb.WriteFull(data)
 
-	select {}
+	bufferReader := NewBufferReader(rb.ringBuffer)
+	readData, err := bufferReader.Read()
+	if err != nil {
+		t.Fatalf("Failed to read data: %v", err)
+	}
+
+	if !bytes.Equal(data, readData) {
+		t.Errorf("Data mismatch. Lengths: Expected %d, Got %d", len(data), len(readData))
+	}
+}
+
+func TestConcurrentWriteAndRead(t *testing.T) {
+	rb := NewRingBufferWrapper(10)
+	defer rb.Destroy()
+
+	data := []byte("concurrent data")
+
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		rb.WriteFull(data)
+	}()
+
+	bufferReader := NewBufferReader(rb.ringBuffer)
+	readDataCh := make(chan []byte, 1)
+
+	go func() {
+		readData, err := bufferReader.Read()
+		if err != nil {
+			t.Fatalf("Failed to read data: %v", err)
+		}
+		readDataCh <- readData
+	}()
+
+	select {
+	case readData := <-readDataCh:
+		if !bytes.Equal(data, readData) {
+			t.Errorf("Data mismatch. Expected: %s, Got: %s", string(data), string(readData))
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for read data")
+	}
+}
+
+func TestRingBufferSynchronization(t *testing.T) {
+	rb := NewRingBufferWrapper(10)
+	defer rb.Destroy()
+
+	data := []byte("sync test")
+
+	// Start writer
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		rb.WriteFull(data)
+	}()
+
+	// Start reader
+	bufferReader := NewBufferReader(rb.ringBuffer)
+	readData, err := bufferReader.Read()
+	if err != nil {
+		t.Fatalf("Failed to read data: %v", err)
+	}
+
+	if !bytes.Equal(data, readData) {
+		t.Errorf("Data mismatch. Expected: %s, Got: %s", string(data), string(readData))
+	}
 }
