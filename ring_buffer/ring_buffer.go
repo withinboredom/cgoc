@@ -62,6 +62,9 @@ func newBufferReader(ringBuffer *C.RingBuffer) *bufferReader {
 	}
 }
 
+const minWait = 1 * time.Microsecond
+const maxWait = 1 * time.Millisecond
+
 // read reads a message from the ring buffer, handling fragmentation
 func (br *bufferReader) read() ([]byte, error) {
 	br.mu.Lock()
@@ -76,8 +79,15 @@ func (br *bufferReader) read() ([]byte, error) {
 
 	for {
 		if br.ringBuffer.read_index == br.ringBuffer.write_index {
+			delay := minWait
 			C.pthread_mutex_unlock(&br.ringBuffer.mutex)
-			time.Sleep(1 * time.Microsecond)
+			for br.ringBuffer.read_index == br.ringBuffer.write_index && delay <= maxWait {
+				time.Sleep(delay)
+				delay *= 2
+			}
+			if br.ringBuffer.read_index == br.ringBuffer.write_index {
+				time.Sleep(maxWait)
+			}
 			C.pthread_mutex_lock(&br.ringBuffer.mutex)
 			continue
 		}

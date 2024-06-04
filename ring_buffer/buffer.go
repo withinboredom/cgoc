@@ -1,7 +1,6 @@
 package ring_buffer
 
 import (
-	"runtime"
 	"sync"
 )
 
@@ -23,10 +22,6 @@ func NewBuffer(size int) *Buffer {
 
 	b.wg.Add(1)
 	go b.startReadRoutine()
-
-	runtime.SetFinalizer(b, func() {
-		b.Destroy()
-	})
 
 	return b
 }
