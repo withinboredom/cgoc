@@ -41,7 +41,7 @@ func main() {
 	go func() {
 		data := <-buffer.Read()
 		end := time.Now()
-		fmt.Printf("Read %d bytes...\nPreview: %s...\n", len(data), string(data[:64]))
+		fmt.Printf("Read %d bytes...\nPreview: %s...\n", len(data), string(data[:32]))
 		fmt.Printf("Avg speed: %0.2f gb/s\n", float64(num)/1024/end.Sub(start).Seconds())
 		fmt.Printf("Time elapsed: %s\n", end.Sub(start))
 		wg.Done()

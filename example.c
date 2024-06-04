@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define MB 1024
+#define MB 1024 * 1024
 
 void example(int mbs, RingBuffer *buffer) {
   char *bytes = malloc(mbs * MB);  // Allocating the memory
