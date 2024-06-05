@@ -51,7 +51,6 @@ func (b *Buffer) startReadRoutine() {
 		case <-b.stopChan:
 			return
 		default:
-			wait_for_signal(b.RingBuffer)
 			data, err := reader.read()
 			if err != nil {
 				panic(err)
