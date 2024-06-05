@@ -3,8 +3,7 @@ package main
 // #include <stdio.h>
 // #include <unistd.h>
 // #include "ring_buffer/ring_buffer.h"
-// void example(int mbs, RingBuffer *buffer);
-// #include "example.c"
+// #include "example.h"
 import "C"
 
 import (
@@ -42,7 +41,7 @@ func main() {
 		data := <-buffer.Read()
 		end := time.Now()
 		fmt.Printf("Read %d bytes...\nPreview: %s...\n", len(data), string(data[:32]))
-		fmt.Printf("Avg speed: %0.2f gb/s\n", float64(num)/1024/end.Sub(start).Seconds())
+		fmt.Printf("Avg speed: %0.2f gb/s\n", float64(num)/1024/end.Sub(start).Seconds()*8.0)
 		fmt.Printf("Time elapsed: %s\n", end.Sub(start))
 		wg.Done()
 	}()

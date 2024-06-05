@@ -36,7 +36,8 @@ size_t ring_buffer_write(RingBuffer *ring_buffer, const void *data, size_t data_
 
         slot->total_length = data_length;
         slot->fragment_offset = offset;
-        slot->data = (const char *)data + offset;
+        slot->data = (char *)malloc(chunk_size);
+        memcpy(slot->data, (char *)data + offset, chunk_size);
 
         remaining -= chunk_size;
         offset += chunk_size;
@@ -64,6 +65,9 @@ RingBufferSlot* ring_buffer_get_read_slot(RingBuffer *ring_buffer) {
 }
 
 void ring_buffer_advance_read_index(RingBuffer *ring_buffer) {
+    RingBufferSlot *slot = &ring_buffer->slots[ring_buffer->write_index];
+    free(slot->data);
+    slot->data = NULL;
     ring_buffer->read_index = (ring_buffer->read_index + 1) % ring_buffer->size;
     pthread_cond_signal(&ring_buffer->cond);
 }

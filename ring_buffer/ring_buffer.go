@@ -74,10 +74,12 @@ func (br *bufferReader) read() ([]byte, error) {
 	var totalLength int
 	var bytesRead int
 
+	//time.Sleep(1 * time.Millisecond)
 	C.pthread_mutex_lock(&br.ringBuffer.mutex)
 	defer C.pthread_mutex_unlock(&br.ringBuffer.mutex)
 
 	for {
+		//time.Sleep(1 * time.Millisecond)
 		if br.ringBuffer.read_index == br.ringBuffer.write_index {
 			delay := minWait
 			C.pthread_mutex_unlock(&br.ringBuffer.mutex)
@@ -101,8 +103,13 @@ func (br *bufferReader) read() ([]byte, error) {
 			copyLength = C.MAX_DATA_LENGTH
 		}
 
+		// create a slice
+		slice := unsafe.Slice((*byte)(unsafe.Pointer(slot.data)), copyLength)
+		data := make([]byte, len(slice))
+		copy(data, slice)
+
 		// Copy only the relevant portion of data from the current slot
-		data := C.GoBytes(unsafe.Pointer(slot.data), C.int(copyLength))
+		//data := C.GoBytes(unsafe.Pointer(slot.data), C.int(copyLength))
 		buffer.Write(data)
 
 		//fmt.Printf("\rRead %d bytes of %d\t\t", len(data), remainingLength)
